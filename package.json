@@ -1,0 +1,33 @@
+{
+  "name": "@outis/sessions",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Sign in with Outis and sign actions off-chain: the extension where it is installed, the sign.outis.xyz window otherwise.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/outis-wallet/sessions.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "5.0.2",
+    "fast-check": "4.10.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  }
+}
