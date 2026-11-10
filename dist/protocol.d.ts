@@ -10,6 +10,13 @@ export declare const WINDOW_SIZE: {
 export declare const MAX_TYPED_DATA_LENGTH = 65536;
 /** The most felts a signature may have. */
 export declare const MAX_SIGNATURE_FELTS = 64;
+/** The most felts a constructor's calldata may have, in an account's deployment data. */
+export declare const MAX_CALLDATA_FELTS = 64;
+/**
+ * The class of every Outis account, as deployment data names it (`class_hash`). A site that pays for
+ * a deploy checks the data against it: the address is a hash of whatever class the data names.
+ */
+export declare const OUTIS_ACCOUNT_CLASS_HASH = "0xeb49f5299d144f0b2e434e483758fb6d7d8241632534d86b098047fe4e2b42";
 /** The SNIP-12 message a site asks the window to sign, as JSON: what `wallet_signTypedData` takes. */
 export type TypedDataJson = {
     types: Record<string, unknown>;
@@ -36,14 +43,34 @@ export type SignRequest = Envelope & {
     account: string | null;
     typedData: TypedDataJson;
 };
+/** Asks how the signed-in account is deployed. It names no account: the window answers for its own, and says which. */
+export type DeploymentRequest = Envelope & {
+    kind: "request";
+    id: string;
+    method: "deploymentData";
+    chainId: string;
+};
 /** Site → window. */
-export type SessionRequest = ConnectRequest | SignRequest;
+export type SessionRequest = ConnectRequest | SignRequest | DeploymentRequest;
 export type ConnectResult = {
     address: string;
 };
 export type SignResult = {
     address: string;
     signature: string[];
+};
+/**
+ * How to deploy the signed-in account: the wallet API's ACCOUNT_DEPLOYMENT_DATA, which
+ * `wallet_deploymentData` answers with. Deployed from address 0 (a deploy of its own, or the
+ * universal deployer told not to make the address its caller's) with this class, salt and
+ * constructor calldata, the account lands at `address`. `version` is the class's Cairo version.
+ */
+export type DeploymentResult = {
+    address: string;
+    class_hash: string;
+    salt: string;
+    calldata: string[];
+    version: 1;
 };
 /** As the Starknet wallet API writes its errors: `{ code: 113, message: "An error occurred (USER_REFUSED_OP)" }`. */
 export type ErrorPayload = {
@@ -68,6 +95,7 @@ export declare const ERRORS: {
     readonly UNLISTED_NETWORK: 112;
     readonly USER_REFUSED_OP: 113;
     readonly INVALID_REQUEST_PAYLOAD: 114;
+    readonly DEPLOYMENT_DATA_NOT_AVAILABLE: 116;
     readonly API_VERSION_NOT_SUPPORTED: 162;
     readonly UNKNOWN_ERROR: 163;
 };
@@ -88,7 +116,7 @@ export declare function chainIdOf(value: unknown): string | undefined;
 export declare function typedDataOf(value: unknown): TypedDataJson | undefined;
 /** A request, as the window reads one from the site (and the SDK checks one before sending), or null. */
 export declare function parseRequest(value: unknown): SessionRequest | null;
-/** A message from the window, as the SDK reads one, or null. What a result holds is read by `connectResultOf` and `signResultOf`. */
+/** A message from the window, as the SDK reads one, or null. What a result holds is read by `connectResultOf`, `signResultOf` and `deploymentResultOf`. */
 export declare function parseWindowMessage(value: unknown): WindowMessage | null;
 /** The id a message names as an answer, where it reads as one (envelope, kind, id) whatever else it holds. */
 export declare function responseIdOf(value: unknown): string | undefined;
@@ -96,6 +124,13 @@ export declare function responseIdOf(value: unknown): string | undefined;
 export declare function connectResultOf(value: unknown): ConnectResult | undefined;
 /** A signature answer's result, if it is one: the account that signed and its signature, felts. */
 export declare function signResultOf(value: unknown): SignResult | undefined;
+/**
+ * A deployment data answer's result, if it is one: the account, its class, the salt and the
+ * constructor's calldata, felts, and Cairo version 1. Read here for its shape only: that these
+ * deploy to `address` is a hash the site takes before it pays for the deploy (README, "Deploying
+ * the user's account").
+ */
+export declare function deploymentResultOf(value: unknown): DeploymentResult | undefined;
 /** The window's address for a site: the site's origin, where the window posts `ready`, and the chain it plays on. */
 export declare function windowUrl(signOrigin: string, site: string, chainId: string): string;
 export {};

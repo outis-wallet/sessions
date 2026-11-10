@@ -32,7 +32,7 @@ describe("parseRequest", () => {
   });
 
   it("refuses anything with a key more or less", () => {
-    for (const request of [connect, sign]) {
+    for (const request of [connect, sign, { ...connect, method: "deploymentData" }]) {
       for (const key of Object.keys(request)) {
         const { [key]: _, ...fewer } = request as Record<string, unknown>;
         expect(parseRequest(fewer), `without ${key}`).toBeNull();

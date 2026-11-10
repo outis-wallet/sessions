@@ -1,4 +1,4 @@
-import { type ConnectResult, type SignResult, type TypedDataJson } from "./protocol.js";
+import { type ConnectResult, type DeploymentResult, type SignResult, type TypedDataJson } from "./protocol.js";
 /** The window as the SDK uses it: what `window.open` returns. */
 export type WindowLike = {
     readonly closed: boolean;
@@ -43,6 +43,11 @@ export type SignWindowOptions = {
     /** How long the window stays open, idle, after it signs the user in or is opened ahead (ms). */
     holdMs: number;
 };
+/**
+ * How long the window has to answer a request that asks nothing of the user (deployment data), once
+ * it is the window's turn: it has the request and nothing that waits on the user is ahead of it.
+ */
+export declare const ANSWER_WITHIN_MS = 10000;
 export declare class SignWindow {
     #private;
     constructor(options: SignWindowOptions, env?: Env);
@@ -60,4 +65,13 @@ export declare class SignWindow {
     connect(): Promise<ConnectResult>;
     /** The account's signature over `typedData`, signed for `account` only where it is given. The window closes after. */
     signTypedData(typedData: TypedDataJson, account: string | null): Promise<SignResult>;
+    /**
+     * How the signed-in account is deployed, which the window answers without asking the user anything
+     * (it refuses where no one is signed in there). The window is left as it was: held open where it
+     * was open (after a sign-in, usually), closed where this request opened it; a signature asked for
+     * beside it still closes the window, whichever is answered last. A window that doesn't answer
+     * within `ANSWER_WITHIN_MS` of its turn (one that doesn't know the request) is a refusal (163),
+     * not a wait without end.
+     */
+    deploymentData(): Promise<DeploymentResult>;
 }

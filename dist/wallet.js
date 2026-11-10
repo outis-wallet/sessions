@@ -8,10 +8,11 @@ import { SignWindow } from "./signWindow.js";
 // Where the extension is installed, it is the extension's own object: the whole wallet, its reviews
 // and its transactions. Otherwise the sign.outis.xyz window stands behind it, and that signs messages
 // only: the kinds its list holds for the site, never a transaction. Moving funds needs the extension.
-export const SESSIONS_VERSION = "0.1.0";
+// It also says how its account is deployed (`wallet_deploymentData`), for the site that pays that.
+export const SESSIONS_VERSION = "0.2.0";
 /** The extension's object, where it puts it: `window.starknet_outis`. */
 export const EXTENSION_GLOBAL = "starknet_outis";
-/** The wallet API versions the window answers for (signing only), and the node spec versions. */
+/** The wallet API versions the window answers for (signing and deployment data only), and the node spec versions. */
 const WINDOW_WALLET_API = ["0.7", "0.8", "0.9", "0.10"];
 const WINDOW_SPECS = ["0.9", "0.10"];
 // The mark in a 500 × 500 box, and the icons the extension's object carries.
@@ -64,7 +65,7 @@ export function extensionWallet(injected) {
     };
 }
 const refuse = (payload) => Promise.reject(new WalletRequestError(payload));
-/** Outis through the sign.outis.xyz window: signs messages for the account it signs in, nothing else. */
+/** Outis through the sign.outis.xyz window: signs messages for the account it signs in and says how that account is deployed, nothing else. */
 export function windowWallet(options) {
     const chainId = chainIdOf(options.chainId);
     if (!chainId)
@@ -156,6 +157,7 @@ export function windowWallet(options) {
         }
         return connecting;
     };
+    const unsupported = (version) => refuse(walletError("API_VERSION_NOT_SUPPORTED", `Outis's window doesn't answer wallet API ${String(version)}`));
     const signTypedData = async (params) => {
         let copy;
         try {
@@ -167,9 +169,8 @@ export function windowWallet(options) {
         // The wallet API's version, which a site may name beside the message: not part of what is signed.
         if (copy !== null && typeof copy === "object" && "api_version" in copy) {
             const { api_version, ...message } = copy;
-            if (typeof api_version !== "string" || !WINDOW_WALLET_API.includes(api_version)) {
-                return refuse(walletError("API_VERSION_NOT_SUPPORTED", `Outis's window doesn't answer wallet API ${String(api_version)}`));
-            }
+            if (typeof api_version !== "string" || !WINDOW_WALLET_API.includes(api_version))
+                return unsupported(api_version);
             copy = message;
         }
         const typedData = typedDataOf(copy);
@@ -191,6 +192,37 @@ export function windowWallet(options) {
                 return changed();
         }
         return signature;
+    };
+    // How the account is deployed, for the site that pays the deploy. Only for the account the site
+    // already knows: it signs no one in, so its answer is for that account or for none. The window
+    // can't tell whether the account is deployed (it reads no chain): the site checks before it pays.
+    const deploymentData = async (params) => {
+        // Nothing is read from the request but the wallet API's version, where it names one.
+        let version;
+        try {
+            version = params?.api_version;
+        }
+        catch {
+            return refuse(walletError("INVALID_REQUEST_PAYLOAD"));
+        }
+        if (version !== undefined && (typeof version !== "string" || !WINDOW_WALLET_API.includes(version)))
+            return unsupported(version);
+        const account = remembered();
+        if (account === null)
+            return refuse(walletError("DEPLOYMENT_DATA_NOT_AVAILABLE", "No one is signed in: ask for wallet_requestAccounts first"));
+        const data = await signWindow.deploymentData();
+        const now = remembered();
+        if (now !== account) {
+            tell(now);
+            return changed();
+        }
+        // Another account's data is never handed over as this one's: the site hears of the account the
+        // window has, and asks again.
+        if (data.address !== account) {
+            remember(data.address);
+            return changed();
+        }
+        return data;
     };
     return {
         id: "outis",
@@ -224,6 +256,8 @@ export function windowWallet(options) {
                 }
                 case "wallet_signTypedData":
                     return signTypedData(call.params);
+                case "wallet_deploymentData":
+                    return deploymentData(call.params);
                 default:
                     if (typeof call?.type !== "string")
                         return refuse(walletError("INVALID_REQUEST_PAYLOAD"));

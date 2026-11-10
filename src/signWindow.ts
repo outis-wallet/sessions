@@ -3,6 +3,7 @@ import {
   WINDOW_SIZE,
   PROTOCOL_VERSION,
   connectResultOf,
+  deploymentResultOf,
   parseRequest,
   parseWindowMessage,
   responseIdOf,
@@ -10,6 +11,7 @@ import {
   walletError,
   windowUrl,
   type ConnectResult,
+  type DeploymentResult,
   type SessionRequest,
   type SignResult,
   type TypedDataJson,
@@ -79,8 +81,17 @@ export type SignWindowOptions = {
   holdMs: number;
 };
 
+/**
+ * How long the window has to answer a request that asks nothing of the user (deployment data), once
+ * it is the window's turn: it has the request and nothing that waits on the user is ahead of it.
+ */
+export const ANSWER_WITHIN_MS = 10_000;
+
 type Pending = {
   request: SessionRequest;
+  /** For a request the window answers by itself: how long it has, and the clock once it runs. */
+  withinMs?: number;
+  timer?: ReturnType<typeof setTimeout>;
   /** What happens to the window once this is answered and nothing else waits: closed, or held for the next request. */
   after: "close" | "hold";
   /** Takes the window's result: resolves with it as the method reads it, or rejects where it can't be read so. */
@@ -90,6 +101,7 @@ type Pending = {
 
 const CLOSED = walletError("USER_REFUSED_OP", "The Outis window was closed");
 const UNREADABLE = walletError("UNKNOWN_ERROR", "The Outis window answered something else");
+const SILENT = walletError("UNKNOWN_ERROR", "The Outis window didn't answer");
 
 export class SignWindow {
   readonly #options: SignWindowOptions;
@@ -100,6 +112,8 @@ export class SignWindow {
   #watch: ReturnType<typeof setInterval> | undefined;
   #hold: ReturnType<typeof setTimeout> | undefined;
   #listening = false;
+  /** A request answered since the window was last idle asked for it to close once nothing waits (a signature). */
+  #closing = false;
 
   constructor(options: SignWindowOptions, env?: Env) {
     // As the browser writes an origin, which answers are compared with: no path, no trailing slash.
@@ -155,12 +169,24 @@ export class SignWindow {
     return this.#request({ method: "signTypedData", account, typedData }, "close", signResultOf);
   }
 
+  /**
+   * How the signed-in account is deployed, which the window answers without asking the user anything
+   * (it refuses where no one is signed in there). The window is left as it was: held open where it
+   * was open (after a sign-in, usually), closed where this request opened it; a signature asked for
+   * beside it still closes the window, whichever is answered last. A window that doesn't answer
+   * within `ANSWER_WITHIN_MS` of its turn (one that doesn't know the request) is a refusal (163),
+   * not a wait without end.
+   */
+  deploymentData(): Promise<DeploymentResult> {
+    return this.#request({ method: "deploymentData" }, this.isOpen ? "hold" : "close", deploymentResultOf, ANSWER_WITHIN_MS);
+  }
+
   #environment(): Env {
     this.#env ??= browserEnv();
     return this.#env;
   }
 
-  #request<T>(fields: Record<string, unknown>, after: Pending["after"], read: (result: unknown) => T | undefined): Promise<T> {
+  #request<T>(fields: Record<string, unknown>, after: Pending["after"], read: (result: unknown) => T | undefined, withinMs?: number): Promise<T> {
     const env = this.#environment();
     const request = parseRequest({ outis: "sessions", v: PROTOCOL_VERSION, kind: "request", id: env.randomId(), chainId: this.#options.chainId, ...fields });
     if (!request || this.#pending.has(request.id)) {
@@ -178,10 +204,39 @@ export class SignWindow {
         else resolve(value);
         return value !== undefined;
       };
-      this.#pending.set(request.id, { request, after, resolve: take, reject });
+      this.#pending.set(request.id, { request, after, withinMs, resolve: take, reject });
       clearTimeout(this.#hold);
       if (this.#ready) this.#popup!.postMessage(request, this.#options.signOrigin);
+      this.#clock();
     });
+  }
+
+  /**
+   * Starts the clock of each request the window answers by itself, once it is that request's turn:
+   * the window is ready, and every request sent before it that may wait on the user (a sign-in, an
+   * approval) is settled. The window serves requests in the order sent, so one behind a signature
+   * isn't late while the user reads.
+   */
+  #clock(): void {
+    if (!this.#ready) return;
+    for (const [id, pending] of this.#pending) {
+      if (pending.withinMs === undefined) return;
+      pending.timer ??= setTimeout(() => {
+        if (this.#pending.get(id) !== pending) return;
+        this.#pending.delete(id);
+        pending.reject(new WalletRequestError(SILENT));
+        this.#settled(pending.after, true);
+      }, pending.withinMs);
+    }
+  }
+
+  /** After a request is settled: with others waiting, on to the next; with none, the window closes or is held. */
+  #settled(after: Pending["after"], taken: boolean): void {
+    if (after === "close") this.#closing = true;
+    if (this.#pending.size > 0) return this.#clock();
+    // A refusal closes it too: no request follows a sign-in that didn't happen.
+    if (this.#closing || !taken) this.close();
+    else this.#holdOpen();
   }
 
   #onMessage(event: MessageLike): void {
@@ -191,6 +246,7 @@ export class SignWindow {
       // The window loaded, or loaded again: it has none of the requests it was sent before.
       this.#ready = true;
       for (const pending of this.#pending.values()) this.#popup.postMessage(pending.request, this.#options.signOrigin);
+      this.#clock();
       return;
     }
     // An answer from its own window for an open id settles it, whether or not it can be read: one it
@@ -199,14 +255,12 @@ export class SignWindow {
     const pending = id === undefined ? undefined : this.#pending.get(id);
     if (!pending) return;
     this.#pending.delete(id!);
+    clearTimeout(pending.timer);
     let taken = false;
     if (!message) pending.reject(new WalletRequestError(UNREADABLE));
     else if ("error" in message) pending.reject(new WalletRequestError(message.error));
     else taken = pending.resolve(message.result);
-    if (this.#pending.size > 0) return;
-    // A refusal closes it too: no request follows a sign-in that didn't happen.
-    if (pending.after === "close" || !taken) this.close();
-    else this.#holdOpen();
+    this.#settled(pending.after, taken);
   }
 
   /** Keeps the window open `holdMs` more, then closes it if nothing is waiting. */
@@ -223,8 +277,12 @@ export class SignWindow {
     clearTimeout(this.#hold);
     this.#popup = null;
     this.#ready = false;
+    this.#closing = false;
     const pending = [...this.#pending.values()];
     this.#pending.clear();
-    for (const { reject } of pending) reject(new WalletRequestError(CLOSED));
+    for (const { reject, timer } of pending) {
+      clearTimeout(timer);
+      reject(new WalletRequestError(CLOSED));
+    }
   }
 }

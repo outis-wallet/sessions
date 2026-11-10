@@ -16,6 +16,13 @@ export const WINDOW_SIZE = { width: 400, height: 640 };
 export const MAX_TYPED_DATA_LENGTH = 65_536;
 /** The most felts a signature may have. */
 export const MAX_SIGNATURE_FELTS = 64;
+/** The most felts a constructor's calldata may have, in an account's deployment data. */
+export const MAX_CALLDATA_FELTS = 64;
+/**
+ * The class of every Outis account, as deployment data names it (`class_hash`). A site that pays for
+ * a deploy checks the data against it: the address is a hash of whatever class the data names.
+ */
+export const OUTIS_ACCOUNT_CLASS_HASH = "0xeb49f5299d144f0b2e434e483758fb6d7d8241632534d86b098047fe4e2b42";
 /** The Stark field's prime: every felt is below it. */
 const FIELD_PRIME = 2n ** 251n + 17n * 2n ** 192n + 1n;
 /** Starknet's addresses are below 2^251. */
@@ -27,6 +34,7 @@ export const ERRORS = {
     UNLISTED_NETWORK: 112,
     USER_REFUSED_OP: 113,
     INVALID_REQUEST_PAYLOAD: 114,
+    DEPLOYMENT_DATA_NOT_AVAILABLE: 116,
     API_VERSION_NOT_SUPPORTED: 162,
     UNKNOWN_ERROR: 163,
 };
@@ -154,6 +162,9 @@ export function parseRequest(value) {
     if (value.method === "connect") {
         return hasKeys(value, ["outis", "v", "kind", "id", "method", "chainId"]) ? value : null;
     }
+    if (value.method === "deploymentData") {
+        return hasKeys(value, ["outis", "v", "kind", "id", "method", "chainId"]) ? value : null;
+    }
     if (value.method === "signTypedData") {
         if (!hasKeys(value, ["outis", "v", "kind", "id", "method", "chainId", "account", "typedData"]))
             return null;
@@ -178,7 +189,7 @@ function errorOf(value) {
         return undefined;
     return { code: code, message, data };
 }
-/** A message from the window, as the SDK reads one, or null. What a result holds is read by `connectResultOf` and `signResultOf`. */
+/** A message from the window, as the SDK reads one, or null. What a result holds is read by `connectResultOf`, `signResultOf` and `deploymentResultOf`. */
 export function parseWindowMessage(value) {
     if (!isEnvelope(value))
         return null;
@@ -209,6 +220,22 @@ export function signResultOf(value) {
     if (!isDense(signature) || signature.length === 0 || signature.length > MAX_SIGNATURE_FELTS || !signature.every(isFelt))
         return undefined;
     return { address: value.address, signature: [...signature] };
+}
+/**
+ * A deployment data answer's result, if it is one: the account, its class, the salt and the
+ * constructor's calldata, felts, and Cairo version 1. Read here for its shape only: that these
+ * deploy to `address` is a hash the site takes before it pays for the deploy (README, "Deploying
+ * the user's account").
+ */
+export function deploymentResultOf(value) {
+    if (!isRecord(value) || !hasKeys(value, ["address", "class_hash", "salt", "calldata", "version"]))
+        return undefined;
+    const { address, class_hash, salt, calldata, version } = value;
+    if (!isAddress(address) || !isFelt(class_hash) || class_hash === "0x0" || !isFelt(salt) || version !== 1)
+        return undefined;
+    if (!isDense(calldata) || calldata.length > MAX_CALLDATA_FELTS || !calldata.every(isFelt))
+        return undefined;
+    return { address, class_hash, salt, calldata: [...calldata], version: 1 };
 }
 /** The window's address for a site: the site's origin, where the window posts `ready`, and the chain it plays on. */
 export function windowUrl(signOrigin, site, chainId) {

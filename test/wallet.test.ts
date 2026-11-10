@@ -149,7 +149,7 @@ describe("windowWallet", () => {
 
   it("refuses transactions and anything else but messages, without a window", async () => {
     const { wallet, page } = setup();
-    for (const type of ["wallet_addInvokeTransaction", "wallet_addDeclareTransaction", "wallet_watchAsset", "wallet_addStarknetChain", "wallet_deploymentData", "starknet_signTransaction"]) {
+    for (const type of ["wallet_addInvokeTransaction", "wallet_addDeclareTransaction", "wallet_watchAsset", "wallet_addStarknetChain", "starknet_signTransaction"]) {
       const error = await wallet.request({ type, params: {} }).catch((e) => e);
       expect(error, type).toBeInstanceOf(WalletRequestError);
       expect(error).toMatchObject({ code: 163, data: `Outis signs only messages here: ${type} needs the Outis extension` });

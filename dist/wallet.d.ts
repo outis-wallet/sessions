@@ -1,5 +1,5 @@
 import { type Env } from "./signWindow.js";
-export declare const SESSIONS_VERSION = "0.1.0";
+export declare const SESSIONS_VERSION = "0.2.0";
 /** The extension's object, where it puts it: `window.starknet_outis`. */
 export declare const EXTENSION_GLOBAL = "starknet_outis";
 export type WalletEvent = "accountsChanged" | "networkChanged";
@@ -64,6 +64,6 @@ export declare function findExtension(scope?: object): StarknetWallet | undefine
 export declare function outisWallet(options: SessionOptions): SessionWallet;
 /** The extension's object, as a SessionWallet: everything goes to the extension. */
 export declare function extensionWallet(injected: StarknetWallet): SessionWallet;
-/** Outis through the sign.outis.xyz window: signs messages for the account it signs in, nothing else. */
+/** Outis through the sign.outis.xyz window: signs messages for the account it signs in and says how that account is deployed, nothing else. */
 export declare function windowWallet(options: SessionOptions): SessionWallet;
 export {};
