@@ -6,10 +6,10 @@ import { SignWindow } from "./signWindow.js";
 // get-starknet takes it as it is (`new StarknetInjectedWallet(wallet)` for its wallet standard).
 //
 // Where the extension is installed, it is the extension's own object: the whole wallet, its reviews
-// and its transactions. Otherwise the sign.outis.xyz window stands behind it, and that signs messages
+// and its transactions. Otherwise the account.outis.xyz window stands behind it, and that signs messages
 // only: the kinds its list holds for the site, never a transaction. Moving funds needs the extension.
 // It also says how its account is deployed (`wallet_deploymentData`), for the site that pays that.
-export const SESSIONS_VERSION = "0.2.0";
+export const SESSIONS_VERSION = "0.3.0";
 /** The extension's object, where it puts it: `window.starknet_outis`. */
 export const EXTENSION_GLOBAL = "starknet_outis";
 /** The wallet API versions the window answers for (signing and deployment data only), and the node spec versions. */
@@ -40,7 +40,7 @@ export function findExtension(scope = globalThis) {
     }
 }
 /**
- * Outis for this site: the extension where it is installed, the sign.outis.xyz window otherwise.
+ * Outis for this site: the extension where it is installed, the account.outis.xyz window otherwise.
  * Throws where `chainId` isn't a chain id.
  */
 export function outisWallet(options) {
@@ -65,7 +65,7 @@ export function extensionWallet(injected) {
     };
 }
 const refuse = (payload) => Promise.reject(new WalletRequestError(payload));
-/** Outis through the sign.outis.xyz window: signs messages for the account it signs in and says how that account is deployed, nothing else. */
+/** Outis through the account.outis.xyz window: signs messages for the account it signs in and says how that account is deployed, nothing else. */
 export function windowWallet(options) {
     const chainId = chainIdOf(options.chainId);
     if (!chainId)

@@ -1,4 +1,4 @@
-// The messages between a site and the sign.outis.xyz window (README.md, "How it works"). The
+// The messages between a site and the account.outis.xyz window (README.md, "How it works"). The
 // site opens the window; the window announces itself (`ready`) to the page that opened it; the site
 // sends requests; the window answers each once. Both sides parse with the functions below, so a
 // request the SDK sends is one the window reads, and the window's answers are read here the one way.
@@ -9,7 +9,7 @@
 // accepts an answer only from the window it opened, at the sign origin, for an id it is waiting on.
 
 /** Where the window lives. A local page in development is named in `SessionOptions.signOrigin`. */
-export const SIGN_ORIGIN = "https://sign.outis.xyz";
+export const SIGN_ORIGIN = "https://account.outis.xyz";
 export const PROTOCOL_VERSION = 1;
 /** The size of the window, in CSS pixels. */
 export const WINDOW_SIZE = { width: 400, height: 640 };

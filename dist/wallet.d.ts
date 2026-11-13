@@ -1,5 +1,5 @@
 import { type Env } from "./signWindow.js";
-export declare const SESSIONS_VERSION = "0.2.0";
+export declare const SESSIONS_VERSION = "0.3.0";
 /** The extension's object, where it puts it: `window.starknet_outis`. */
 export declare const EXTENSION_GLOBAL = "starknet_outis";
 export type WalletEvent = "accountsChanged" | "networkChanged";
@@ -21,7 +21,7 @@ export type StarknetWallet = {
     off(event: WalletEvent, handler: Handler): void;
 };
 export type SessionWallet = StarknetWallet & {
-    /** Which Outis answers: the extension, or the sign.outis.xyz window. */
+    /** Which Outis answers: the extension, or the account.outis.xyz window. */
     readonly kind: "extension" | "window";
     /**
      * The window only: opens it, in the click that leads to a request which follows other work (a
@@ -40,7 +40,7 @@ export type StorageLike = {
 export type SessionOptions = {
     /** The chain the site plays on, in hex: `0x534e5f5345504f4c4941` (SN_SEPOLIA). */
     chainId: string;
-    /** Where the window lives: sign.outis.xyz, or a local page in development. */
+    /** Where the window lives: account.outis.xyz, or a local page in development. */
     signOrigin?: string;
     /** How long the window stays open, idle, after it signs the user in or is opened ahead (ms). 30 s. */
     holdMs?: number;
@@ -58,12 +58,12 @@ export declare const ICON: {
 /** The extension's object in this page, if it is installed. */
 export declare function findExtension(scope?: object): StarknetWallet | undefined;
 /**
- * Outis for this site: the extension where it is installed, the sign.outis.xyz window otherwise.
+ * Outis for this site: the extension where it is installed, the account.outis.xyz window otherwise.
  * Throws where `chainId` isn't a chain id.
  */
 export declare function outisWallet(options: SessionOptions): SessionWallet;
 /** The extension's object, as a SessionWallet: everything goes to the extension. */
 export declare function extensionWallet(injected: StarknetWallet): SessionWallet;
-/** Outis through the sign.outis.xyz window: signs messages for the account it signs in and says how that account is deployed, nothing else. */
+/** Outis through the account.outis.xyz window: signs messages for the account it signs in and says how that account is deployed, nothing else. */
 export declare function windowWallet(options: SessionOptions): SessionWallet;
 export {};

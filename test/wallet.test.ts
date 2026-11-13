@@ -104,14 +104,14 @@ describe("outisWallet", () => {
 
   it("takes a sign origin written as an address, as the browser writes origins", async () => {
     const page = fakePage();
-    const wallet = windowWallet({ chainId: SEPOLIA, signOrigin: "https://sign.outis.xyz/", env: page.env, storage: null });
+    const wallet = windowWallet({ chainId: SEPOLIA, signOrigin: "https://account.outis.xyz/", env: page.env, storage: null });
     const accounts = track(wallet.request({ type: "wallet_requestAccounts" }));
-    expect(new URL(page.popup().url).origin).toBe("https://sign.outis.xyz");
+    expect(new URL(page.popup().url).origin).toBe("https://account.outis.xyz");
     page.ready(page.popup());
     page.answer(page.popup(), page.popup().requests()[0]!.id, { address: ALICE });
     await settle();
     expect(accounts.value).toEqual([ALICE]);
-    expect(() => windowWallet({ chainId: SEPOLIA, signOrigin: "sign.outis.xyz" })).toThrow(TypeError);
+    expect(() => windowWallet({ chainId: SEPOLIA, signOrigin: "account.outis.xyz" })).toThrow(TypeError);
   });
 
   it("looks like the extension's own object to a site", () => {
@@ -335,7 +335,7 @@ describe("windowWallet", () => {
     await expect(kept.wallet.request({ type: "wallet_requestAccounts", params: { silent_mode: true } })).resolves.toEqual([ALICE]);
     const planted = new MemoryStorage();
     const { wallet } = setup({ storage: planted });
-    planted.setItem(`outis-sessions:https://sign.outis.xyz:${SEPOLIA}:account`, "0xA11CE");
+    planted.setItem(`outis-sessions:https://account.outis.xyz:${SEPOLIA}:account`, "0xA11CE");
     await expect(wallet.request({ type: "wallet_requestAccounts", params: { silent_mode: true } })).resolves.toEqual([]);
   });
 

@@ -213,8 +213,9 @@ describe("SignWindow", () => {
     const response = { outis: "sessions", v: 1, kind: "response", id: sign!.id, result: { address: BOB, signature: ["0x66"] } };
     page.deliver({}, SIGN_ORIGIN, response); // another window at the sign origin
     page.deliver(null, SIGN_ORIGIN, response);
-    page.deliver(popup, "https://sign.outis.xyz.evil.example", response);
-    page.deliver(popup, "http://sign.outis.xyz", response);
+    page.deliver(popup, "https://account.outis.xyz.evil.example", response);
+    page.deliver(popup, "http://account.outis.xyz", response);
+    page.deliver(popup, "https://sign.outis.xyz", response); // its name until 0.3.0
     page.deliver(popup, SITE, response);
     page.answer(popup, "f".repeat(32), { address: BOB, signature: ["0x66"] });
     await settle();
@@ -271,7 +272,7 @@ describe("SignWindow", () => {
 
   it("settles a request only on its own window's answer at the sign origin (property)", async () => {
     const sources = ["popup", "other", "none"] as const;
-    const origins = [SIGN_ORIGIN, "https://sign.outis.xyz.evil.example", "http://sign.outis.xyz", "null", SITE, "https://SIGN.outis.xyz"];
+    const origins = [SIGN_ORIGIN, "https://account.outis.xyz.evil.example", "http://account.outis.xyz", "null", SITE, "https://ACCOUNT.outis.xyz", "https://sign.outis.xyz"];
     const event = fc.record({
       source: fc.constantFrom(...sources),
       origin: fc.constantFrom(...origins),
@@ -330,9 +331,9 @@ describe("browserEnv", () => {
     try {
       const env = browserEnv();
       expect(env.origin).toBe(SITE);
-      env.open("https://sign.outis.xyz/?v=1", env.features(400, 640));
+      env.open("https://account.outis.xyz/?v=1", env.features(400, 640));
       // noopener (or noreferrer, which implies it) would leave the window no opener to answer.
-      expect(opened).toEqual([["https://sign.outis.xyz/?v=1", "_blank", "popup,width=400,height=640,left=500,top=180"]]);
+      expect(opened).toEqual([["https://account.outis.xyz/?v=1", "_blank", "popup,width=400,height=640,left=500,top=180"]]);
       env.onMessage(() => {});
       expect(listened).toEqual(["message"]);
       const ids = new Set(Array.from({ length: 100 }, () => env.randomId()));

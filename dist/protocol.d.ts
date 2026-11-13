@@ -1,5 +1,5 @@
 /** Where the window lives. A local page in development is named in `SessionOptions.signOrigin`. */
-export declare const SIGN_ORIGIN = "https://sign.outis.xyz";
+export declare const SIGN_ORIGIN = "https://account.outis.xyz";
 export declare const PROTOCOL_VERSION = 1;
 /** The size of the window, in CSS pixels. */
 export declare const WINDOW_SIZE: {

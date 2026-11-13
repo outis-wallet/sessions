@@ -186,7 +186,7 @@ describe("SignWindow.deploymentData", () => {
     page.ready(popup);
     const { id } = popup.requests()[0]!;
     page.deliver({}, SIGN_ORIGIN, { outis: "sessions", v: 1, kind: "response", id, result: data(BOB) });
-    page.deliver(popup, "https://sign.outis.xyz.evil.example", { outis: "sessions", v: 1, kind: "response", id, result: data(BOB) });
+    page.deliver(popup, "https://account.outis.xyz.evil.example", { outis: "sessions", v: 1, kind: "response", id, result: data(BOB) });
     page.answer(popup, "f".repeat(32), data(BOB));
     await settle();
     expect(asked.settled).toBe(false);

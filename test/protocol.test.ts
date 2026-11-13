@@ -293,8 +293,8 @@ describe("chainIdOf", () => {
 
 describe("windowUrl", () => {
   it("names the site and the chain in the query", () => {
-    const url = new URL(windowUrl("https://sign.outis.xyz", `${SITE}/?&x=1#y`, SEPOLIA));
-    expect(url.origin).toBe("https://sign.outis.xyz");
+    const url = new URL(windowUrl("https://account.outis.xyz", `${SITE}/?&x=1#y`, SEPOLIA));
+    expect(url.origin).toBe("https://account.outis.xyz");
     expect(url.searchParams.get("site")).toBe(`${SITE}/?&x=1#y`);
     expect(url.searchParams.get("chain")).toBe(SEPOLIA);
     expect(url.hash).toBe("");

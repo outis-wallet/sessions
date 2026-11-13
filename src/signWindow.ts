@@ -17,7 +17,7 @@ import {
   type TypedDataJson,
 } from "./protocol.js";
 
-// The site's side of the sign.outis.xyz window: it opens the window, waits for it to say it is
+// The site's side of the account.outis.xyz window: it opens the window, waits for it to say it is
 // ready, sends each request and takes each answer once. An answer counts only from the window it
 // opened (`event.source`), at the sign origin (`event.origin`), for an id it is waiting on; anything
 // else is ignored. Requests are sent only to the sign origin (`postMessage`'s target), never "*".

@@ -7,7 +7,7 @@ extension.
 
 - **With the Outis extension installed,** it is the extension: the full wallet, with its reviews and
   transactions.
-- **Without it,** sign-ins and signatures go through a small Outis window at `sign.outis.xyz`. Users
+- **Without it,** sign-ins and signatures go through a small Outis window at `account.outis.xyz`. Users
   install nothing, and your app gets signatures from their Outis account all the same.
 
 ## What it's for
@@ -35,7 +35,7 @@ the referee is unavailable rather than leaving players to dispute.
 ## Install
 
 ```sh
-npm install github:outis-wallet/sessions#v0.2.0
+npm install github:outis-wallet/sessions#v0.3.0
 ```
 
 ## Quick start
@@ -227,7 +227,7 @@ Requests reject with a `WalletRequestError` carrying the wallet API's code:
 
 ## How it works
 
-The window is a page on `sign.outis.xyz` that your site opens with `window.open`. The two talk by
+The window is a page on `account.outis.xyz` that your site opens with `window.open`. The two talk by
 `postMessage`, and each side trusts only what it can check:
 
 - **Your site** posts requests only to the window's origin, and takes an answer only from the window
@@ -253,7 +253,7 @@ The messages, for anyone checking them:
 | Window | `{ outis, v, kind: "response", id, error: { code, message, data? } }` |
 
 An `id` is 128 random bits (32 hex digits). The window opens at
-`https://sign.outis.xyz/?v=1&site=<your origin>&chain=<chain id>`.
+`https://account.outis.xyz/?v=1&site=<your origin>&chain=<chain id>`.
 
 ## Development
 

@@ -7,11 +7,11 @@ import { SignWindow, type Env } from "./signWindow.js";
 // get-starknet takes it as it is (`new StarknetInjectedWallet(wallet)` for its wallet standard).
 //
 // Where the extension is installed, it is the extension's own object: the whole wallet, its reviews
-// and its transactions. Otherwise the sign.outis.xyz window stands behind it, and that signs messages
+// and its transactions. Otherwise the account.outis.xyz window stands behind it, and that signs messages
 // only: the kinds its list holds for the site, never a transaction. Moving funds needs the extension.
 // It also says how its account is deployed (`wallet_deploymentData`), for the site that pays that.
 
-export const SESSIONS_VERSION = "0.2.0";
+export const SESSIONS_VERSION = "0.3.0";
 /** The extension's object, where it puts it: `window.starknet_outis`. */
 export const EXTENSION_GLOBAL = "starknet_outis";
 
@@ -30,7 +30,7 @@ export type StarknetWallet = {
 };
 
 export type SessionWallet = StarknetWallet & {
-  /** Which Outis answers: the extension, or the sign.outis.xyz window. */
+  /** Which Outis answers: the extension, or the account.outis.xyz window. */
   readonly kind: "extension" | "window";
   /**
    * The window only: opens it, in the click that leads to a request which follows other work (a
@@ -51,7 +51,7 @@ export type StorageLike = {
 export type SessionOptions = {
   /** The chain the site plays on, in hex: `0x534e5f5345504f4c4941` (SN_SEPOLIA). */
   chainId: string;
-  /** Where the window lives: sign.outis.xyz, or a local page in development. */
+  /** Where the window lives: account.outis.xyz, or a local page in development. */
   signOrigin?: string;
   /** How long the window stays open, idle, after it signs the user in or is opened ahead (ms). 30 s. */
   holdMs?: number;
@@ -94,7 +94,7 @@ export function findExtension(scope: object = globalThis): StarknetWallet | unde
 }
 
 /**
- * Outis for this site: the extension where it is installed, the sign.outis.xyz window otherwise.
+ * Outis for this site: the extension where it is installed, the account.outis.xyz window otherwise.
  * Throws where `chainId` isn't a chain id.
  */
 export function outisWallet(options: SessionOptions): SessionWallet {
@@ -121,7 +121,7 @@ export function extensionWallet(injected: StarknetWallet): SessionWallet {
 
 const refuse = (payload: ErrorPayload) => Promise.reject(new WalletRequestError(payload));
 
-/** Outis through the sign.outis.xyz window: signs messages for the account it signs in and says how that account is deployed, nothing else. */
+/** Outis through the account.outis.xyz window: signs messages for the account it signs in and says how that account is deployed, nothing else. */
 export function windowWallet(options: SessionOptions): SessionWallet {
   const chainId = chainIdOf(options.chainId);
   if (!chainId) throw new TypeError(`Not a chain id: ${options.chainId}`);
