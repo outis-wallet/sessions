@@ -11,7 +11,7 @@ import { SignWindow, type Env } from "./signWindow.js";
 // only: the kinds its list holds for the site, never a transaction. Moving funds needs the extension.
 // It also says how its account is deployed (`wallet_deploymentData`), for the site that pays that.
 
-export const SESSIONS_VERSION = "0.3.0";
+export const SESSIONS_VERSION = "0.3.1";
 /** The extension's object, where it puts it: `window.starknet_outis`. */
 export const EXTENSION_GLOBAL = "starknet_outis";
 
@@ -55,6 +55,8 @@ export type SessionOptions = {
   signOrigin?: string;
   /** How long the window stays open, idle, after it signs the user in or is opened ahead (ms). 30 s. */
   holdMs?: number;
+  /** How long it stays open, idle, once it answers `wallet_deploymentData` asked after a sign-in (ms). 3 s. */
+  dataHoldMs?: number;
   /** Where the account is remembered: the page's `localStorage`, or null for nowhere. */
   storage?: StorageLike | null;
   /** false: the window even where the extension is installed. */
@@ -127,7 +129,7 @@ export function windowWallet(options: SessionOptions): SessionWallet {
   if (!chainId) throw new TypeError(`Not a chain id: ${options.chainId}`);
   // As the browser writes an origin, which is what answers are compared with: no path, no trailing slash.
   const signOrigin = new URL(options.signOrigin ?? SIGN_ORIGIN).origin;
-  const signWindow = new SignWindow({ signOrigin, chainId, holdMs: options.holdMs ?? 30_000 }, options.env);
+  const signWindow = new SignWindow({ signOrigin, chainId, holdMs: options.holdMs ?? 30_000, dataHoldMs: options.dataHoldMs }, options.env);
   const storage = options.storage === undefined ? pageStorage() : options.storage;
   const key = `outis-sessions:${signOrigin}:${chainId}:account`;
   const handlers: Record<WalletEvent, Set<Handler>> = { accountsChanged: new Set(), networkChanged: new Set() };

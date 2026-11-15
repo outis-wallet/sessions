@@ -35,7 +35,7 @@ the referee is unavailable rather than leaving players to dispute.
 ## Install
 
 ```sh
-npm install github:outis-wallet/sessions#v0.3.0
+npm install github:outis-wallet/sessions#v0.3.1
 ```
 
 ## Quick start
@@ -93,6 +93,9 @@ button.onclick = async () => {
 ```
 
 After a sign-in, the window stays open for 30 seconds, ready for the signature that usually follows.
+Once it answers `wallet_deploymentData` asked after that sign-in, it waits only 3 seconds more
+([Deploying the user's account](#deploying-the-users-account)), unless you opened it with `open()`
+since the sign-in: then it waits its 30 seconds.
 
 ## Deploying the user's account
 
@@ -115,7 +118,9 @@ const data = (await outis.request({ type: "wallet_deploymentData" })) as {
 ```
 
 Ask right after the sign-in, while its window is still open (30 seconds): it answers there, with
-nothing asked of the user. Later, ask in a click, as the request opens the window for a moment. It
+nothing asked of the user, and then closes 3 seconds later (`dataHoldMs`) unless you ask for
+something else. A signature you want after it must be asked within those 3 seconds, or from a click
+that calls `open()` first. Later, ask in a click, as the request opens the window for a moment. It
 signs no one in: it needs the account your site already knows, and is refused (116) before a
 sign-in, or where the window no longer has anyone signed in (ask for `wallet_requestAccounts`
 again). A window that doesn't answer within ten seconds of its turn is a refusal too (163). Where
@@ -181,6 +186,7 @@ Your pages must keep their link to the window: don't send `Cross-Origin-Opener-P
 | `storage` | Where the account is remembered. The page's `localStorage` by default; `null` for nowhere. |
 | `extension` | `false` to use the window even where the extension is installed. |
 | `holdMs` | How long the window waits after a sign-in, or after `open()` (30 000 ms). |
+| `dataHoldMs` | How long the window waits once it answers `wallet_deploymentData` asked after a sign-in, unless you opened it with `open()` since (3 000 ms). |
 | `signOrigin` | Another window origin, for development. |
 
 ### The wallet

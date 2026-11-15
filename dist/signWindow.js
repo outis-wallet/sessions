@@ -18,6 +18,11 @@ export function browserEnv() {
     };
 }
 /**
+ * How long the window waits after it answers deployment data asked after a sign-in: the site has
+ * done what follows a sign-in, and a signature it still asks for comes straight after.
+ */
+export const DATA_HOLD_MS = 3_000;
+/**
  * How long the window has to answer a request that asks nothing of the user (deployment data), once
  * it is the window's turn: it has the request and nothing that waits on the user is ahead of it.
  */
@@ -36,6 +41,8 @@ export class SignWindow {
     #listening = false;
     /** A request answered since the window was last idle asked for it to close once nothing waits (a signature). */
     #closing = false;
+    /** The window signed the user in, and the site hasn't opened it ahead since: deployment data answered now is followed by the short hold. */
+    #signedIn = false;
     constructor(options, env) {
         // As the browser writes an origin, which answers are compared with: no path, no trailing slash.
         this.#options = { ...options, signOrigin: new URL(options.signOrigin).origin };
@@ -48,9 +55,15 @@ export class SignWindow {
     /**
      * Opens the window, or brings it forward where it is open. Call it in the click that leads to a
      * request when the request follows other work (a fetch): browsers block windows opened long after
-     * the click. Throws where the browser blocks it.
+     * the click. Throws where the browser blocks it. The window is then held `holdMs`, through
+     * deployment data answered in it, until a sign-in.
      */
     open() {
+        this.#show();
+        this.#signedIn = false;
+    }
+    /** Opens the window, or brings it forward, and holds it `holdMs` where nothing waits. */
+    #show() {
         if (this.#popup && !this.#popup.closed) {
             this.#popup.focus();
             if (this.#pending.size === 0)
@@ -79,7 +92,7 @@ export class SignWindow {
         this.#lost();
         popup?.close();
     }
-    /** Signs the user in, where the window has no one signed in, and answers with the account. The window then stays open a while for the next request. */
+    /** Signs the user in, where the window has no one signed in, and answers with the account. The window then stays open `holdMs` for the next request. */
     connect() {
         return this.#request({ method: "connect" }, "hold", connectResultOf);
     }
@@ -90,10 +103,11 @@ export class SignWindow {
     /**
      * How the signed-in account is deployed, which the window answers without asking the user anything
      * (it refuses where no one is signed in there). The window is left as it was: held open where it
-     * was open (after a sign-in, usually), closed where this request opened it; a signature asked for
-     * beside it still closes the window, whichever is answered last. A window that doesn't answer
-     * within `ANSWER_WITHIN_MS` of its turn (one that doesn't know the request) is a refusal (163),
-     * not a wait without end.
+     * was open, closed where this request opened it; a signature asked for beside it still closes the
+     * window, whichever is answered last. Held after a sign-in, it is held `dataHoldMs` from the
+     * answer, for a signature asked straight after; opened ahead (`open()`), `holdMs`. A window that
+     * doesn't answer within `ANSWER_WITHIN_MS` of its turn (one that doesn't know the request) is a
+     * refusal (163), not a wait without end.
      */
     deploymentData() {
         return this.#request({ method: "deploymentData" }, this.isOpen ? "hold" : "close", deploymentResultOf, ANSWER_WITHIN_MS);
@@ -109,7 +123,7 @@ export class SignWindow {
             return Promise.reject(new WalletRequestError(walletError("INVALID_REQUEST_PAYLOAD", "Outis can't send this request to its window")));
         }
         try {
-            this.open();
+            this.#show();
         }
         catch (error) {
             return Promise.reject(error);
@@ -147,21 +161,23 @@ export class SignWindow {
                     return;
                 this.#pending.delete(id);
                 pending.reject(new WalletRequestError(SILENT));
-                this.#settled(pending.after, true);
+                this.#settled(pending, true);
             }, pending.withinMs);
         }
     }
     /** After a request is settled: with others waiting, on to the next; with none, the window closes or is held. */
-    #settled(after, taken) {
+    #settled({ request, after }, taken) {
         if (after === "close")
             this.#closing = true;
+        if (request.method === "connect" && taken)
+            this.#signedIn = true;
         if (this.#pending.size > 0)
             return this.#clock();
         // A refusal closes it too: no request follows a sign-in that didn't happen.
         if (this.#closing || !taken)
             this.close();
         else
-            this.#holdOpen();
+            this.#holdOpen(request.method === "deploymentData" && this.#signedIn ? (this.#options.dataHoldMs ?? DATA_HOLD_MS) : this.#options.holdMs);
     }
     #onMessage(event) {
         if (this.#popup === null || event.source !== this.#popup || event.origin !== this.#options.signOrigin)
@@ -190,15 +206,15 @@ export class SignWindow {
             pending.reject(new WalletRequestError(message.error));
         else
             taken = pending.resolve(message.result);
-        this.#settled(pending.after, taken);
+        this.#settled(pending, taken);
     }
-    /** Keeps the window open `holdMs` more, then closes it if nothing is waiting. */
-    #holdOpen() {
+    /** Keeps the window open `ms` more, then closes it if nothing is waiting. */
+    #holdOpen(ms = this.#options.holdMs) {
         clearTimeout(this.#hold);
         this.#hold = setTimeout(() => {
             if (this.#pending.size === 0)
                 this.close();
-        }, this.#options.holdMs);
+        }, ms);
     }
     /** Forgets the window, and refuses whatever it had open as closed. */
     #lost() {
@@ -207,6 +223,7 @@ export class SignWindow {
         this.#popup = null;
         this.#ready = false;
         this.#closing = false;
+        this.#signedIn = false;
         const pending = [...this.#pending.values()];
         this.#pending.clear();
         for (const { reject, timer } of pending) {

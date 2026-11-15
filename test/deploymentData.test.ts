@@ -114,7 +114,8 @@ describe("deploymentResultOf", () => {
 
 describe("SignWindow.deploymentData", () => {
   const HOLD = 30_000;
-  const signWindow = (page: ReturnType<typeof fakePage>) => new SignWindow({ signOrigin: SIGN_ORIGIN, chainId: SEPOLIA, holdMs: HOLD }, page.env);
+  const DATA_HOLD = 2_000;
+  const signWindow = (page: ReturnType<typeof fakePage>) => new SignWindow({ signOrigin: SIGN_ORIGIN, chainId: SEPOLIA, holdMs: HOLD, dataHoldMs: DATA_HOLD }, page.env);
 
   it("asks the window, only at the sign origin, and takes its answer", async () => {
     const page = fakePage();
@@ -137,7 +138,7 @@ describe("SignWindow.deploymentData", () => {
     expect(popup.closed).toBe(true);
   });
 
-  it("leaves a window held open after a sign-in open, for the signature that follows", async () => {
+  it("answers in a window held open after a sign-in, then holds it only a short while", async () => {
     const page = fakePage();
     const window = signWindow(page);
     void window.connect();
@@ -151,11 +152,113 @@ describe("SignWindow.deploymentData", () => {
     page.answer(popup, popup.requests()[1]!.id, data());
     await settle();
     expect(asked.value).toEqual(data());
-    // Held again from the answer, then closed.
-    vi.advanceTimersByTime(HOLD - 1);
+    // Held again from the answer, for the short hold only, then closed.
+    vi.advanceTimersByTime(DATA_HOLD - 1);
     expect(popup.closed).toBe(false);
     vi.advanceTimersByTime(1);
     expect(popup.closed).toBe(true);
+  });
+
+  describe("the hold after it is answered", () => {
+    /** Signs in, as Surround does, and answers the deployment data asked straight after. */
+    const signedInWithData = async (window: SignWindow, page: ReturnType<typeof fakePage>) => {
+      void window.connect();
+      const popup = page.popup();
+      page.ready(popup);
+      page.answer(popup, popup.requests()[0]!.id, { address: ALICE });
+      await settle();
+      const asked = track(window.deploymentData());
+      page.answer(popup, popup.requests()[1]!.id, data());
+      await settle();
+      expect(asked.value).toEqual(data());
+      return popup;
+    };
+
+    it("closes the window within the short hold after a sign-in and its deployment data, with nothing more asked", async () => {
+      const page = fakePage();
+      const window = signWindow(page);
+      const popup = await signedInWithData(window, page);
+      vi.advanceTimersByTime(DATA_HOLD - 1);
+      expect(popup.closed).toBe(false);
+      vi.advanceTimersByTime(1);
+      expect(popup.closed).toBe(true);
+      expect(window.isOpen).toBe(false);
+    });
+
+    it("takes a signature asked within the short hold, in the same window", async () => {
+      const page = fakePage();
+      const window = signWindow(page);
+      const popup = await signedInWithData(window, page);
+      vi.advanceTimersByTime(DATA_HOLD - 1);
+      const signed = track(window.signTypedData(DELEGATION, ALICE));
+      // Asked in time: no hold closes the window under it, however long the user reads.
+      vi.advanceTimersByTime(HOLD * 2);
+      expect(popup.closed).toBe(false);
+      expect(page.popups).toHaveLength(1);
+      page.answer(popup, popup.requests()[2]!.id, { address: ALICE, signature: ["0x1"] });
+      await settle();
+      expect(signed.value).toEqual({ address: ALICE, signature: ["0x1"] });
+      expect(popup.closed).toBe(true);
+    });
+
+    it("keeps the long hold of a window the site opened ahead, through deployment data, for the signature after a fetch", async () => {
+      const page = fakePage();
+      const window = signWindow(page);
+      window.open();
+      const popup = page.popup();
+      page.ready(popup);
+      const asked = track(window.deploymentData());
+      page.answer(popup, popup.requests()[0]!.id, data());
+      await settle();
+      expect(asked.value).toEqual(data());
+      vi.advanceTimersByTime(HOLD - 1);
+      expect(popup.closed).toBe(false);
+      const signed = track(window.signTypedData(DELEGATION, ALICE));
+      page.answer(popup, popup.requests()[1]!.id, { address: ALICE, signature: ["0x1"] });
+      await settle();
+      expect(signed.value).toEqual({ address: ALICE, signature: ["0x1"] });
+      expect(page.popups).toHaveLength(1);
+    });
+
+    it("keeps the long hold where the site opens the window ahead after a sign-in, as in a later click", async () => {
+      const page = fakePage();
+      const window = signWindow(page);
+      const popup = await signedInWithData(window, page);
+      window.open();
+      const asked = track(window.deploymentData());
+      page.answer(popup, popup.requests()[2]!.id, data());
+      await settle();
+      expect(asked.value).toEqual(data());
+      vi.advanceTimersByTime(HOLD - 1);
+      expect(popup.closed).toBe(false);
+      vi.advanceTimersByTime(1);
+      expect(popup.closed).toBe(true);
+    });
+
+    it("holds it only a short while where the site opened the window ahead for the sign-in itself", async () => {
+      const page = fakePage();
+      const window = signWindow(page);
+      window.open();
+      const popup = await signedInWithData(window, page);
+      vi.advanceTimersByTime(DATA_HOLD - 1);
+      expect(popup.closed).toBe(false);
+      vi.advanceTimersByTime(1);
+      expect(popup.closed).toBe(true);
+    });
+
+    it("keeps the long hold after a sign-in that no deployment data follows", async () => {
+      const page = fakePage();
+      const window = signWindow(page);
+      void window.connect();
+      const popup = page.popup();
+      page.ready(popup);
+      page.answer(popup, popup.requests()[0]!.id, { address: ALICE });
+      await settle();
+      vi.advanceTimersByTime(HOLD - 1);
+      expect(popup.closed).toBe(false);
+      vi.advanceTimersByTime(1);
+      expect(popup.closed).toBe(true);
+    });
   });
 
   it("refuses another method's answer, and gives its own to no other method", async () => {
@@ -228,6 +331,19 @@ describe("wallet_deploymentData through the window", () => {
     await settle();
     expect(asked.value).toEqual({ address: ALICE, class_hash: "0x1234abcd", salt: "0x0", calldata: ["0x0", "0x77", "0x1"], version: 1 });
     expect(popup.closed).toBe(false);
+  });
+
+  it("closes the window 3 s after answering, by default, where a sign-in asked it and nothing follows", async () => {
+    const { page, signedIn, ask } = setup();
+    const popup = await signedIn(ALICE);
+    const asked = ask();
+    page.answer(popup, popup.requests().at(-1)!.id, data());
+    await settle();
+    expect(asked.value).toEqual(data());
+    vi.advanceTimersByTime(2_999);
+    expect(popup.closed).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(popup.closed).toBe(true);
   });
 
   it("opens the window in the call where it is closed, and closes it after", async () => {

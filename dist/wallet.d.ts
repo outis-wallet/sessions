@@ -1,5 +1,5 @@
 import { type Env } from "./signWindow.js";
-export declare const SESSIONS_VERSION = "0.3.0";
+export declare const SESSIONS_VERSION = "0.3.1";
 /** The extension's object, where it puts it: `window.starknet_outis`. */
 export declare const EXTENSION_GLOBAL = "starknet_outis";
 export type WalletEvent = "accountsChanged" | "networkChanged";
@@ -44,6 +44,8 @@ export type SessionOptions = {
     signOrigin?: string;
     /** How long the window stays open, idle, after it signs the user in or is opened ahead (ms). 30 s. */
     holdMs?: number;
+    /** How long it stays open, idle, once it answers `wallet_deploymentData` asked after a sign-in (ms). 3 s. */
+    dataHoldMs?: number;
     /** Where the account is remembered: the page's `localStorage`, or null for nowhere. */
     storage?: StorageLike | null;
     /** false: the window even where the extension is installed. */

@@ -9,7 +9,7 @@ import { SignWindow } from "./signWindow.js";
 // and its transactions. Otherwise the account.outis.xyz window stands behind it, and that signs messages
 // only: the kinds its list holds for the site, never a transaction. Moving funds needs the extension.
 // It also says how its account is deployed (`wallet_deploymentData`), for the site that pays that.
-export const SESSIONS_VERSION = "0.3.0";
+export const SESSIONS_VERSION = "0.3.1";
 /** The extension's object, where it puts it: `window.starknet_outis`. */
 export const EXTENSION_GLOBAL = "starknet_outis";
 /** The wallet API versions the window answers for (signing and deployment data only), and the node spec versions. */
@@ -72,7 +72,7 @@ export function windowWallet(options) {
         throw new TypeError(`Not a chain id: ${options.chainId}`);
     // As the browser writes an origin, which is what answers are compared with: no path, no trailing slash.
     const signOrigin = new URL(options.signOrigin ?? SIGN_ORIGIN).origin;
-    const signWindow = new SignWindow({ signOrigin, chainId, holdMs: options.holdMs ?? 30_000 }, options.env);
+    const signWindow = new SignWindow({ signOrigin, chainId, holdMs: options.holdMs ?? 30_000, dataHoldMs: options.dataHoldMs }, options.env);
     const storage = options.storage === undefined ? pageStorage() : options.storage;
     const key = `outis-sessions:${signOrigin}:${chainId}:account`;
     const handlers = { accountsChanged: new Set(), networkChanged: new Set() };
